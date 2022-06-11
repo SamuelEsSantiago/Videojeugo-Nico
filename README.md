@@ -1,4 +1,2 @@
 # FinalProject
-A videogame about an island
-UwUr
-°--°
+Santiago tomo el projecto final para mover cosas lol
