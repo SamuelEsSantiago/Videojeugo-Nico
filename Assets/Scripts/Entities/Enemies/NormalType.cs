@@ -5,28 +5,23 @@ using UnityEngine;
 
 public class NormalType : Enemy
 {
-    // Waiting patrolling time
-    
-
     #region Unity stuff
-    protected new void Start()
-    {
-        startWaitTime = 2f;
-        waitTime = startWaitTime;
-        /*viewDistance = 3f;
-        damageAmount = 20;
-        waitTime = 2f;
-        chaseSpeed = normalSpeed;*/
-        base.Start();
-    }
-
     protected new void Update()
     {
-        isChasing = CanSeePlayer();
+        isChasing = fieldOfView.canSeePlayer;
         base.Update();
     }
 
     new protected void FixedUpdate()
+    {
+        if ( (fieldOfView.inFrontOfObstacle || groundChecker.isNearEdge) && !isFalling)
+        {
+            enemyMovement.StopMovement();
+        }
+        base.FixedUpdate();
+    }
+
+    protected void EnemyFixedUpdate()
     {
         base.FixedUpdate();
     }
@@ -35,46 +30,23 @@ public class NormalType : Enemy
     #region Behaviour methods
     protected override void MainRoutine()
     {
-        if (InFrontOfObstacle() || IsNearEdge())
+        if (!touchingPlayer)
         {
-            if (waitTime > 0)
-            {
-                isWalking = false;
-                waitTime -= Time.deltaTime;
-                return;
-            }
-            ChangeFacingDirection();
-            waitTime = startWaitTime;
-        }
-        else
-        {
-            transform.Translate(Vector3.right * Time.deltaTime * normalSpeed);
-            isWalking = true;
+            enemyMovement.DefaultPatrol();
         }
     }
 
     protected override void ChasePlayer()
     {
-        if (!IsNearEdge() && !touchingPlayer && isGrounded)
+        if (!touchingPlayer)
         {
-            rigidbody2d.position = Vector3.MoveTowards(transform.position, new Vector3(player.transform.position.x, transform.position.y), chaseSpeed * Time.deltaTime);
-        }
-        else
-        {
-            isWalking = false;
-        }
-    }
+            enemyMovement.GoToInGround(player.GetPosition(), chasing: true, checkNearEdge: true);
 
-    protected override void Attack()
-    {
-        if(atackEffect != null){
-            player.statesManager.AddState(atackEffect,this);
+            if (!groundChecker.isNearEdge)
+            {
+                animationManager?.ChangeAnimation("walk", enemyMovement.ChaseSpeed * 1 / enemyMovement.DefaultSpeed);
+            }
         }
-    }
-
-    public override void ConsumeItem(Item item)
-    {
-        Debug.Log("Consumiendo "+ item.nombre);
     }
     #endregion
 }

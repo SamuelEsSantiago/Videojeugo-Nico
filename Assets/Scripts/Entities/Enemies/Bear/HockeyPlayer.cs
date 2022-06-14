@@ -1,106 +1,78 @@
 using UnityEngine;
-public class HockeyPlayer : Bear, IProjectile
+public class HockeyPlayer : Enemy
 {
-    [SerializeField] private Transform shotPos;
-    [SerializeField] private GameObject projectilePrefab;
-    [SerializeField] private float startTimeBtwShot;
-    [SerializeField] private LayerMask whatIsIce;
-    [SerializeField] private float pushForce;
+    [Header("Self Additions")]
     [SerializeField] private float maxViewDistance;
-    private Projectile projectile;
-    private float timeBtwShot;
-    private bool isOnIce;
-    
+    [SerializeField] private float timeBtwShot;
+    private float curTimeBtwShot;
+
+    [SerializeField] private float pushTime;
+    [SerializeField] private Vector2 pushVector;
+    [SerializeField] private float pushForce;
+    public bool IsOnIce { get => collisionHandler.Contacts.Exists(g => g.tag == "Ice"); }
+
     new void Start()
     {
         base.Start();
+        /*if (pushForceMultiplier.magnitude > 0f)
+        {
+            pushForce *= pushForceMultiplier;
+        }*/
+        projectileShooter.ProjectileTouchedPlayerHandler += projectileShooter_ProjectileTouchedPlayer;
     }
+    
     new void Update()
     {
-        //isOnIce = Physics2D.OverlapCircle(feetPos.position, checkFeetRadius, whatIsIce);
+        fieldOfView.SetViewDistanceOnRayHitObstacle(facingDirection == RIGHT ? Vector2.right : Vector2.left, maxViewDistance);
+        //isOnIce = groundChecker.lastGroundTag == "Ice";
         
-        // change "Ground" to "Obtacles" maybe
-        RaycastHit2D hit = Physics2D.Linecast(fovOrigin.position, fovOrigin.position + (facingDirection == RIGHT? Vector3.right : Vector3.left) * maxViewDistance, 1 << LayerMask.NameToLayer("Ground"));
-        if (hit.collider == null)
-        {
-            viewDistance = maxViewDistance;
-        }
-        else 
-        {
-            viewDistance = hit.distance;
-        }
         base.Update();
     }
 
     protected override void MainRoutine()
     {
-        if (isOnIce)
+        if (IsOnIce)
         {
-            if (InFrontOfObstacle() || IsNearEdge())
-            {
-                if (waitTime > 0)
-                {
-                    isWalking = false;
-                    waitTime -= Time.deltaTime;
-                    return;
-                }
-                ChangeFacingDirection();
-                waitTime = startWaitTime;
-            }
-            else
-            {
-                transform.Translate(Vector3.right * Time.deltaTime * normalSpeed);
-                isWalking = true;
-            }
+            enemyMovement.DefaultPatrol("Ice");
         }
-        else
+        /*else
         {
-            if (waitTime > 0)
-            {
-                isWalking = false;
-                waitTime -= Time.deltaTime;
-                return;
-            }
             ChangeFacingDirection();
-            waitTime = startWaitTime;
-        }
+        }*/
         
     }
 
     protected override void ChasePlayer()
     {
-        if (timeBtwShot <= 0)
+        if (curTimeBtwShot > timeBtwShot && animationManager.currentState != "HockeyPlayer_shoot")
         {
-            ShotProjectile(shotPos, new Vector3(player.feetPos.position.x, shotPos.transform.position.y));
-            timeBtwShot = startTimeBtwShot;
+            animationManager.ChangeAnimation("shoot");
+            ShootProjectile();
+            curTimeBtwShot = 0;
         }
         else
         {
-            timeBtwShot -= Time.deltaTime;
+            curTimeBtwShot += Time.deltaTime;
         }
     }
 
-    protected override void Attack()
+    void ShootProjectile()
     {
-        return;
+        Vector2 shotPos = projectileShooter.ShotPos.position;
+        Vector2 direction = MathUtils.GetXDirection(shotPos, player.GetPosition());
+        float distance = MathUtils.GetAbsXDistance(shotPos, player.GetPosition());
+        direction.x = shotPos.x + (facingDirection == RIGHT? distance : -distance);// new Vector2(shotPos.x * (shotPos.x - player.GetPosition().x), 0f);
+
+        projectileShooter.ShootProjectileAndSetDistance(direction , "Ice");
+        animationManager.SetCurrentState("idle", true);
     }
 
-    public void ProjectileAttack()
-    {
-        player.TakeTirement(projectile.damage);
-        player.Push((facingDirection == RIGHT? -pushForce : pushForce), 0f);
-        
-    }
 
-    public void ShotProjectile(Transform from, Vector3 to)
+    public void projectileShooter_ProjectileTouchedPlayer()
     {
-        projectile = Instantiate(projectilePrefab, from.position, Quaternion.identity).GetComponent<Projectile>();
-        projectile.Setup(from, to, this, "Ground"); // change to "Ice" when exists
-    }
-
-    void OnCollisionStay2D(Collision2D other)
-    {
-        isOnIce = other.collider.tag == "Ground";// change to "Ice" when exists
+        //player.Push((facingDirection == RIGHT? pushForce.x : -pushForce.x), pushForce.y);
+        Vector2 direction = new Vector2(facingDirection == RIGHT? pushVector.x : -pushVector.x, pushVector.y);
+        player.Knockback(pushTime, pushForce, direction);
     }
 
 }

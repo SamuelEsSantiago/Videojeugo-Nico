@@ -1,66 +1,83 @@
 using UnityEngine;
 
-public class HunterCentaur : Centaur, IProjectile
+public class HunterCentaur : Enemy
 {
-    [SerializeField] private Transform shotProjectilePos;
-    [SerializeField] private GameObject projectilePrefab;
-    private Projectile projectile;
+    [SerializeField] private float timeBtwFlip;
+    private float curTimeBtwFlip;
     [SerializeField] private float startTimeBtwShot;
     private float timeBtwShot;
 
-    new void Start()
-    {
-        base.Start();
-    }
+    [SerializeField] private Paralized paralized;
 
-    new void Update()
+    new void Awake()
     {
-        base.Update();
+        base.Awake();
+        timeBtwShot = startTimeBtwShot;
     }
 
     protected override void MainRoutine()
     {
-        if (waitTime <= 0)
+        animationManager.ChangeAnimation("idle");
+        timeBtwShot = startTimeBtwShot;
+
+        if (rigidbody2d.velocity.magnitude != 0 && !fieldOfView.inFrontOfObstacle)
         {
+            enemyMovement.StopMovement();
+        }
+        if (curTimeBtwFlip > timeBtwFlip)
+        {
+            animationManager.ChangeAnimation("search");
+            animationManager.SetNextAnimation("idle");
             ChangeFacingDirection();
-            waitTime = startWaitTime;
+            curTimeBtwFlip = 0;
         }
         else
         {
-            waitTime -= Time.deltaTime;
+            curTimeBtwFlip += Time.deltaTime;
         }
     }
 
     protected override void ChasePlayer()
     {
-        if (timeBtwShot <= 0)
+        if (groundChecker.isNearEdge)
         {
-            ShotProjectile(shotProjectilePos, player.GetPosition());
-            timeBtwShot = startTimeBtwShot;
+            if (animationManager.currentState != "HunterCentaur_throw") animationManager.ChangeAnimation("idle");
+            if (timeBtwShot <= 0)
+            {
+                if (animationManager.currentState != "HunterCentaur_throw")
+                {
+                    Invoke("ShootProjectile", 1.8f);
+                    animationManager.ChangeAnimation("throw");
+                }
+            }
+            else
+            {
+                timeBtwShot -= Time.deltaTime;
+            }
         }
-        else
+        else if (animationManager.currentState != "HunterCentaur_throw")
         {
-            timeBtwShot -= Time.deltaTime;
+            if (fieldOfView.inFrontOfObstacle)
+            {
+                enemyMovement.Jump();
+            }
+            else
+            {
+                enemyMovement.GoToInGround(player.GetPosition(), chasing: true, checkNearEdge: true);
+                animationManager.ChangeAnimation("walk");
+            }
         }
-        
-        rigidbody2d.position = Vector3.MoveTowards(GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime);
+    }
+
+    void ShootProjectile()
+    {
+        projectileShooter.ShootProjectile(player.GetPosition());
+        timeBtwShot = startTimeBtwShot + 1.5f;
     }
 
     protected override void Attack()
     {
-        Debug.Log("CENTAURO ATACANDO");
-        player.statesManager.AddState(atackEffect);
-    }
-
-    public void ProjectileAttack()
-    {
-        player.statesManager.AddState(projectileEffect);
-        player.TakeTirement(projectile.damage);
-    }
-
-    public void ShotProjectile(Transform from, Vector3 to)
-    {
-        projectile = Instantiate(projectilePrefab, from.transform.position, Quaternion.identity).GetComponent<Projectile>();
-        projectile.Setup(from, to, this);
+        base.Attack();
+        statesManager.AddState(paralized);
     }
 }

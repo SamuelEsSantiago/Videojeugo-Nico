@@ -1,69 +1,76 @@
 using UnityEngine;
 using System.Collections.Generic;
-public class ThrowerCactus : Cactus, IProjectile
+public class ThrowerCactus : Enemy
 {
-    [SerializeField] private Transform shotPos;
-    [SerializeField] private GameObject projectilePrefab;
+    [Header("Self Additions")]
     [SerializeField] private float startTimeBtwShot;
-    [SerializeField] private GameObject allucination;
-    //[SerializeField] private float numberOfAllucinations;
-    [SerializeField] private List<Transform> allucinationsPos;
-    private int numberOfAllucinations;
-    private bool allucinationsInstantiated;
-    private Projectile projectile;
     private float timeBtwShot;
+    [SerializeField] private GameObject allucination;
+    [SerializeField] private List<Transform> allucinationsPos;
+    [SerializeField] private byte minAllucinations;
+    [SerializeField] private byte maxAllucinations;
+    private bool allucinationsInstantiated;
+
+    [Header("Projectiles")]
+    [SerializeField] private Transform firstShotPos;
+    [SerializeField] private Transform secondShotPos;
+
     new void Start()
     {
         base.Start();
-
+        projectileShooter.ProjectileTouchedPlayerHandler += projectileShooter_ProjectileTouchedPlayer;
     }
-    new void Update()
-    {
-        base.Update();
-    }
-
-    /*protected override void MainRoutine()
-    {
-        return;
-    }*/
 
     protected override void ChasePlayer()
     {
-        if (timeBtwShot <= 0)
+        if (timeBtwShot > startTimeBtwShot)
         {
-            ShotProjectile(shotPos, player.GetPosition());
-            timeBtwShot = startTimeBtwShot;
+            animationManager.ChangeAnimation(projectileShooter.ShotPos == firstShotPos ? "first_shot" : "second_shot");
+
+
+            // Shoot projectile inm 0.3s, so the animation has time to prepar
+            Invoke("HandleShootProjectile", 0.3f);
+            timeBtwShot = 0;
         }
         else
         {
-            timeBtwShot -= Time.deltaTime;
+            if (animationManager.previousState == "ThrowerCactus_idle" || animationManager.previousState == "")
+            {
+                animationManager.ChangeAnimation("chase");
+            }
+            else
+            {
+                animationManager.SetNextAnimation("chase");
+            }
+            timeBtwShot += Time.deltaTime;
         }
     }
 
-    protected override void Attack()
+    void HandleShootProjectile()
     {
-        player.TakeTirement(damageAmount);
-    } 
+        projectileShooter.ShootProjectile(player.GetPosition());
+        projectileShooter.ShotPos = projectileShooter.ShotPos == firstShotPos? secondShotPos : firstShotPos;
+        timeBtwShot = 0;
+    }
 
-    public void ProjectileAttack()
+    public void projectileShooter_ProjectileTouchedPlayer()
     {
         //player.TakeTirement(projectile.damage);
         // make screen dark for 0.5s
         if (!allucinationsInstantiated)
         {
-            numberOfAllucinations = RandomGenerator.NewRandom(3, 8);
+            int numberOfAllucinations = RandomGenerator.NewRandom(minAllucinations, maxAllucinations);
             for (int i = 0; i < numberOfAllucinations; i++)
             {
-                Instantiate(allucination, allucinationsPos[i].position, Quaternion.identity);
+                var obj = Instantiate(allucination.GetComponent<NormalType>(), allucinationsPos[i].position, allucination.transform.rotation);
             }
             allucinationsInstantiated = true;
         }
     }
 
-    public void ShotProjectile(Transform from, Vector3 to)
+    protected override void MainRoutine()
     {
-        projectile = Instantiate(projectilePrefab, from.transform.position, Quaternion.identity).GetComponent<Projectile>();
-        projectile.Setup(from, to, this);
+        timeBtwShot = 0;
+        animationManager.ChangeAnimation("idle");
     }
-
 }

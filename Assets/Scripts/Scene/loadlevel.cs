@@ -1,48 +1,91 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+
 
 public class loadlevel : MonoBehaviour
 {
     public int iLevelToLoad;
-    public static loadlevel instance = null;
+    public int noDoor = 1;
+    [SerializeField]public Transform loadPosition;
+    [SerializeField] protected GameObject interSign;
+    protected PlayerManager player;
 
-    /// <summary>
-    /// Awake is called when the script instance is being loaded.
-    /// </summary>
-    /*void Awake()
-    {
-        if (instance == null)
+    protected virtual void Start() {
+        interSign?.SetActive(false);
+        if (SceneController.instance != null)
         {
-            instance = this;
+            PlayerManager.instance.physics.ResetAll();
+            if(PlayerManager.instance.isDeath){
+                Debug.Log("Cargando en el ultimo checkpoint");
+                PlayerManager.instance.gameObject.transform.position = SaveFilesManager.instance.currentSaveSlot.positionSpawn;
+                PlayerManager.instance.RestoreValuesForDead();
+            }else{
+                if(SceneController.instance.prevScene != 0 && SceneController.instance.prevScene == iLevelToLoad){
+                    if(loadPosition!=null && !PlayerManager.instance.isDeath && SceneController.instance.altDoor == noDoor){
+                        PlayerManager.instance.gameObject.transform.position = loadPosition.position;
+                    }
+                }
+                else{
+                    //if loading from 0 spawnpoint = startPosition
+                    if(SceneController.instance.prevScene == 0){
+                        Debug.Log("Cargando desde main menu");
+                        PlayerManager.instance.gameObject.transform.position = SaveFilesManager.instance.currentSaveSlot.positionSpawn;
+                    }
+                }
+            }
+            
         }
-        else if (instance != this)
+
+    }
+    
+    protected void OnTriggerEnter2D(Collider2D collision){
+        GameObject collisionGameObject = collision.gameObject;
+        /*if (collisionGameObject.tag == "Untagged")
         {
-            Destroy(gameObject);
+            PlayerManager.instance.dodgePerectCollider.gameObject.layer = LayerMask.NameToLayer("Default");
+        }else{
+            PlayerManager.instance.dodgePerectCollider.gameObject.layer = LayerMask.NameToLayer("Untagged");
+        }*/
+        if (collisionGameObject.tag == "Player")
+        {
+            PlayerManager.instance.inputs.Interact -= cargarEscena;
+            PlayerManager.instance.inputs.Interact += cargarEscena;
+            interSign?.SetActive(true);
         }
-        DontDestroyOnLoad(this);
-    }*/
-    void Start()
-    {
-        
     }
-
-    void Update()
-    {
-        
-    }
-
-    private void OnTriggerEnter2D(Collider2D collision){
+    protected void OnTriggerExit2D(Collider2D collision) {
         GameObject collisionGameObject = collision.gameObject;
         if (collisionGameObject.tag == "Player")
         {
-            LoadScene();
+            PlayerManager.instance.inputs.Interact -= cargarEscena;
+            interSign?.SetActive(false);
         }
     }
 
-    void LoadScene(){
-        SceneManager.LoadScene(iLevelToLoad);
+    protected void LoadScene(){
+        SceneController.instance.altDoor = noDoor;
+        SceneController.instance.LoadScene(iLevelToLoad);
+
         //Camera.instance.gameObject.SetActive(true);
+    }
+    protected void RestoreValuesForOtherScene(){
+        PlayerManager.instance.isInWater = false;
+        PlayerManager.instance.isInDark = false;
+        PlayerManager.instance.isInSnow = false;  
+        PlayerManager.instance.isInIce = false;
+        PlayerManager.instance.walkingSpeed = PlayerManager.defaultwalkingSpeed;
+        PlayerManager.instance.currentGravity = PlayerManager.defaultGravity;
+        PlayerManager.instance.ResetAnimations();
+        //PlayerManager.instance.statesManager.StopAll();
+    }
+    protected virtual void cargarEscena(){
+        
+        PlayerManager.instance.inputs.Interact -= cargarEscena; 
+        LoadScene();
+        RestoreValuesForOtherScene();
+    }
+    void OnDestroy() {
+        PlayerManager.instance.inputs.Interact -= cargarEscena; 
     }
 }

@@ -4,69 +4,82 @@ using UnityEngine;
 
 public class DashV : Ability
 {
-    public Rigidbody2D body;
-    private float prevGravity;
+    [SerializeField]private Rigidbody2D body;
+    public override KeyCode hotkey {get => PlayerManager.instance.inputs.controlBinds["MOVEUP"];}
+    protected KeyCode altHotkey {get => PlayerManager.instance.inputs.controlBinds["MOVEDOWN"];}
+    private KeyCode lastKey;
     private float timeKeyPressed;
     public float doubleTimeTap;
-    public float movimiento;
-    public float speed;
-    float currentDashTime;
-    Vector2 target;
-    int nKeyPressed;
+    byte nKeyPressed;
+    [SerializeField] KnockbackState dashV; 
     public override void UseAbility()
     {
+        nKeyPressed = 0;
+        if(player.currentStamina < staminaCost + 0.1f)return;
         base.UseAbility();
-        if(player.currentStamina < staminaCost)return;
-        player.isDashing=true;
-        body.velocity = new Vector2(0f, 0f);
-        body.AddForce(new Vector2(0f, movimiento * speed), ForceMode2D.Impulse);
-        prevGravity = body.gravityScale;
-        body.gravityScale = 0;
-        isInCooldown = true;
-        player.isJumping = true;
+        dashV = (KnockbackState)player.statesManager.AddState(dashV);
+        if (player.abilityManager.IsUnlocked(Abilities.DodgePerfecto))
+        {
+            player.SetImmune(duration);
+        }
     }
 
-        
-        protected override void Update(){
-            if (isInCooldown)
+
+    protected override void Start()
+    {
+        base.Start();
+        dashV.onEffect = false;
+    }
+    protected override void Update(){
+        this.enabled = isUnlocked;
+        if (isInCooldown)
+        {
+            time += Time.deltaTime;
+            if (time >= cooldownTime)
             {
-                time += Time.deltaTime;
-                if (time >= cooldownTime)
-                {
-                    isInCooldown = false;
-                    time = 0;
-                }
+                isInCooldown = false;
+                time = 0;
             }
-            this.enabled = isUnlocked;
-            if(player.isDashing){
-                currentDashTime += Time.deltaTime;
-                if(currentDashTime >= duration){
-                    currentDashTime=0;
-                    player.isDashing = false;
-                    body.gravityScale = prevGravity;
-                }
-            }
-            else{
-                if(timeKeyPressed!=0){
-                    timeKeyPressed+=Time.deltaTime;
-                    if(timeKeyPressed>=doubleTimeTap){
-                        timeKeyPressed=0;
-                        nKeyPressed=0;
-                    }
-                }
-                if(Input.GetKeyDown(hotkey)){
-                    nKeyPressed++;
-                    timeKeyPressed+=Time.deltaTime;
-                    //Debug.Log("Presionado "+hotkey.ToString()+" nTimes: " + nKeyPressed);
-                }
-                
-                if(nKeyPressed>=2){
-                    nKeyPressed=0;
-                    UseAbility();
-                }
-            }
-            
         }
+        player.isDashingH = player.statesManager.currentStates.Contains(dashV);
+        Dash(hotkey);
+        Dash(altHotkey);
+        if (lastKey == hotkey)
+        {
+            dashV.angle = 90;
+        }else
+        {
+            dashV.angle = 270;
+        }
+    }
+
+    private void Dash(KeyCode key){
         
+        if (Input.GetKeyDown(key))
+        {
+            nKeyPressed++;
+            if (lastKey != key)
+            {
+                nKeyPressed = 0;
+                timeKeyPressed = 0;
+            }
+            lastKey = key;
+        }
+        if (nKeyPressed == 1)
+        {
+            if (timeKeyPressed<doubleTimeTap)
+            {
+                timeKeyPressed += Time.deltaTime;
+            }else
+            {
+                nKeyPressed = 0;
+                timeKeyPressed = 0;
+            }
+        }
+        if (nKeyPressed >= 2)
+        {
+            UseAbility();
+        }
+    }
     
 }

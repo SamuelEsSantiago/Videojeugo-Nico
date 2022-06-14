@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class Ability : MonoBehaviour
 {
+    public Sprite iconAbility;
+    public bool isPasive;
+    [TextArea (3,10)]public string description;
     public enum Abilities
     {
         Invisibilidad, 
@@ -23,8 +26,8 @@ public class Ability : MonoBehaviour
         Volar
     }
     [SerializeField] protected float cooldownTime;
-    [SerializeField] protected KeyCode hotkey;
-    [SerializeField] protected float staminaCost;
+    public virtual KeyCode hotkey {get;set;}
+    [SerializeField] public float staminaCost;
     [SerializeField] protected float duration;
     [SerializeField] protected bool isInCooldown;
     public Abilities abilityName;
@@ -32,10 +35,15 @@ public class Ability : MonoBehaviour
     protected PlayerManager player;
     protected float time;
     public bool isUnlocked;
+    public bool beenUsed;
 
     public virtual void UseAbility()
     {
-        if(player.currentStamina < staminaCost)return;
+        if(player.currentStamina < staminaCost+.1)return;
+        if (player.statesManager.currentStates.Contains(Escudo.scudoState))
+        {
+            beenUsed = true;
+        }
         isInCooldown = true; 
         //Debug.Log($"Usando {abilityName.ToString()}");
         if (isInCooldown)
@@ -50,7 +58,6 @@ public class Ability : MonoBehaviour
     {
         player = PlayerManager.instance;
         time = 0;
-        gameObject.GetComponent<AbilityManager>().AddAbility(this);
     }
 
     protected virtual void Update()
@@ -72,5 +79,11 @@ public class Ability : MonoBehaviour
                 time = 0;
             }
         }
+    }
+    public float GetStaminaCost(){
+        return staminaCost;
+    }
+    public void SetStaminaCost(float newStaminaCost){
+        staminaCost = newStaminaCost;
     }
 }

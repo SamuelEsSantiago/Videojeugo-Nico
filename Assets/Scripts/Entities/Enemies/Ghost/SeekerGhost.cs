@@ -1,76 +1,58 @@
 using UnityEngine;
-public class SeekerGhost : Ghost
+using System.Collections.Generic;
+public class SeekerGhost : Enemy
 {
-    [SerializeField] private Transform dividePos; 
-    [SerializeField] private float baseStartTimeUntilDivide;
-    [SerializeField] private float baseMainTimeUntilDivide;
-    [SerializeField] private int maxGhosts;
+    [Header("Self Additions")]
+    [SerializeField] private float timeAfterSpawnToStopPush;
+    private float curTimeAfterSpawn;
+    [SerializeField] private Vector2 pushForceWhenSpawned;
 
-    private bool alreadyDivided;
-    private float startTimeUntilDivide;
-    private float mainTimeUntilDivide;
-    private int ghostsDivisions;
 
     new void Start()
     {
         base.Start();
+
+        ChangeFacingDirection();
+        curTimeAfterSpawn = 0;
     }
 
-    new void Update()
+    new void FixedUpdate()
     {
-        ghostsDivisions = ScenesManagers.GetObjectsOfType<SeekerGhost>().Count;
-        if (ghostsDivisions == 0)
+
+        if (curTimeAfterSpawn > timeAfterSpawnToStopPush && rigidbody2d.velocity.magnitude != 0)
         {
-            if (startTimeUntilDivide < baseStartTimeUntilDivide)
-            {
-                startTimeUntilDivide += Time.deltaTime;
-            }
-            else
-            {
-                Divide();
-            }
+            enemyMovement.StopAllMovement();
+            //physics.SetKinematic(0.5f);
         }
         else
         {
-            if (mainTimeUntilDivide < baseMainTimeUntilDivide)
-            {
-                mainTimeUntilDivide += Time.deltaTime;
-            }
-            else
-            {
-                Divide();
-                mainTimeUntilDivide = 0;
-            }
+            curTimeAfterSpawn += Time.deltaTime;
         }
         
-        base.Update();
-    }
-
-    protected override void MainRoutine()
-    {
-        rigidbody2d.Sleep();
+        base.FixedUpdate();
     }
 
     protected override void ChasePlayer()
     {
-        rigidbody2d.position = Vector3.MoveTowards(GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime);
+        enemyMovement.GoTo(player.GetPosition(), chasing: true, gravity: false);
     }
 
-    protected override void Attack()
-    {
-        player.TakeTirement(damageAmount);
-    }
-
-    private void Divide()
+    /*private void Divide()
     {
         if (!alreadyDivided)
         {
             if (ghostsDivisions < maxGhosts)
             {
-                Instantiate(this, dividePos.position, Quaternion.identity).baseStartTimeUntilDivide = 5f;
+                SeekerGhost ghost = Instantiate(this, dividePos.position, Quaternion.identity);
+                ghost.isOriginal = false;
+                ghost.statesManager.RemoveAll();
+                clones.Add(ghost);
+
+                ghost.curTimeAfterSpawn = 0;
+                ghost.ChangeFacingDirection();
+                ghost.Push(facingDirection == RIGHT? -pushForceWhenSpawned.x : pushForceWhenSpawned.x, pushForceWhenSpawned.y);
                 alreadyDivided = true;
-                //ghostsDivisions++;
             }
         }
-    }
+    }*/
 }

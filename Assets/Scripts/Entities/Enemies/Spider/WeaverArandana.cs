@@ -1,61 +1,65 @@
 using System.Collections;
 using UnityEngine;
 
-public class WeaverArandana : Arandaña, IProjectile
+public class WeaverArandana : Enemy
 {
-    [SerializeField] private Transform shotProjectilePos;
-    [SerializeField] private GameObject projectilePrefab;
     private Projectile projectile;
     [SerializeField] private float startTimeBtwShot;
     private float timeBtwShot;
+    [SerializeField] private float timeInShotAnim;
 
     new void Start()
     {
         base.Start();
-    }
-
-    new void Update()
-    {
-        base.Update();
+        timeBtwShot = startTimeBtwShot;
     }
 
     protected override void ChasePlayer()
     {
         if (timeBtwShot <= 0)
         {
-            animator.SetBool("Is Shooting", true);
-            ShotProjectile(shotProjectilePos, player.GetPosition());
+            //animator.SetBool("Is Shooting", true);
+            animationManager.ChangeAnimation("shoot");
+            Invoke("ChangeToWeave", timeInShotAnim);
+
+            projectileShooter.ShootProjectileAndSetDistance(player.GetPosition());
             timeBtwShot = startTimeBtwShot;
         }
         else
         {
-            animator.SetBool("Is Shooting", false);
+            if (animationManager.currentState != enemyName + "_" + "shoot")
+            {
+                animationManager.ChangeAnimation("weave");
+            }
+            
             timeBtwShot -= Time.deltaTime;
         }
     }
 
     protected override void MainRoutine()
     {
-        return;
+        animationManager.ChangeAnimation("idle");
     }
 
-    protected override void Attack()
+    void ChangeToWeave()
     {
-        return;
+        if (fieldOfView.canSeePlayer)
+        {
+            animationManager.ChangeAnimation("weave");
+        }
     }
 
-
-    public void ProjectileAttack()
+    /*new void FixedUpdate()
     {
-        player.TakeTirement(projectile.damage);
-        // player decrease speed to 0.6 for 2 seconds
-    }
+        //if (animationManager.currentState != )
+    }*/
 
 
-    public void ShotProjectile(Transform from, Vector3 to)
+    /*public void ShotProjectile(Transform from, Vector3 to)
     {
         projectile = Instantiate(projectilePrefab, from.transform.position, Quaternion.identity).GetComponent<Projectile>();
         projectile.Setup(from, to, this);
-    }
+        projectile.MaxShotDistance = Vector2.Distance(from.position, to);
+    }*/
 
 }

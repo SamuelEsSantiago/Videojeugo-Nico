@@ -2,23 +2,29 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SpotterGnome : Gnome
+public class SpotterGnome : Enemy
 {
     // To check if the player was being chased
-    private bool justChasedPlayer;
+    [Header("Self Additions")]
+    [SerializeField] private float targetOffset;
+    [SerializeField] private float waitTimeAfterReachedTarget;
+    private float curWaitTime;
+    [SerializeField] private float intervalBtwFlipInTarget;
+    private float curInterval;
+    [SerializeReference]private bool justChasedPlayer;
     private Vector3 lastSeenPlayerPosition;
-    float timer = 3;
+    
+    [SerializeField] private EmoteSetter emoteSetter;
+    private State instantiatedEmote; 
 
     protected new void Start()
     {
         base.Start();
-        waitTime = 2; // to wait 2 seconds before changing facing direction
-        
+        curWaitTime = waitTimeAfterReachedTarget;
     }
 
     protected new void Update()
     {
-        isChasing = CanSeePlayer() || justChasedPlayer;
         base.Update();
     }
 
@@ -26,11 +32,13 @@ public class SpotterGnome : Gnome
     {
         if (justChasedPlayer)
         {
-            if (this.GetPosition().x != lastSeenPlayerPosition.x)
+            currentState = StateNames.Other;
+            if (Mathf.Abs(this.GetPosition().x - lastSeenPlayerPosition.x) > targetOffset)
             {
-                if (!InFrontOfObstacle() && isGrounded)
+                if (!fieldOfView.inFrontOfObstacle)
                 {
-                    rigidbody2d.position = Vector3.MoveTowards(this.GetPosition(), new Vector3(lastSeenPlayerPosition.x, 0), chaseSpeed * rigidbody2d.gravityScale * Time.deltaTime);
+                    //rigidbody2d.position = Vector3.MoveTowards(this.GetPosition(), new Vector3(lastSeenPlayerPosition.x, 0), chaseSpeed * rigidbody2d.gravityScale * Time.deltaTime);
+                    enemyMovement.GoToInGround(lastSeenPlayerPosition, chasing: true, checkNearEdge: false);
                 }
                 else
                 {
@@ -39,41 +47,76 @@ public class SpotterGnome : Gnome
             }
             else
             {
-                isWalking = false;
-                if (timer > 0)
+                enemyMovement.StopMovement();
+                
+                if (curWaitTime > 0 && !fieldOfView.canSeePlayer)
                 {
-                    timer -= Time.deltaTime;
+                    if (curInterval > intervalBtwFlipInTarget)
+                    {
+                        if (instantiatedEmote == null)
+                        {
+                            instantiatedEmote = statesManager.AddStateDontRepeat(emoteSetter);
+                            instantiatedEmote.duration = waitTimeAfterReachedTarget;
+                        }
+                        enemyMovement.ChangeFacingDirection();
+                        curInterval = 0;
+                    }
+                    else
+                    {
+                        curInterval += Time.deltaTime;
+                    }
+                    curWaitTime -= Time.deltaTime;
                     return;
                 }
+                instantiatedEmote?.StopAffect();
+
+                enemyMovement.ChangeFacingDirection();
                 justChasedPlayer = false;
-                timer = 2f;
+                curWaitTime = waitTimeAfterReachedTarget;
             }
         }
         base.FixedUpdate();
     }
 
-    /// <summary>
-    /// LateUpdate is called every frame, if the Behaviour is enabled.
-    /// It is called after all Update functions have been called.
-    /// </summary>
+    protected override void SetStates()
+    {
+        isChasing = fieldOfView.canSeePlayer || touchingPlayer;// || justChasedPlayer;
+    }
+
+
     void LateUpdate()
     {
         // if ChasePlayer() was just called in update, checks if can not longer see player to update the boolean
-        justChasedPlayer = justChasedPlayer && !CanSeePlayer();
+        justChasedPlayer = justChasedPlayer && !fieldOfView.canSeePlayer;
     }
     protected override void ChasePlayer()
     {
-        if (!touchingPlayer)
+        //if (!touchingPlayer)
         {
-            rigidbody2d.position = Vector3.MoveTowards(this.GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime * rigidbody2d.gravityScale);
+            //rigidbody2d.position = Vector3.MoveTowards(this.GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime * rigidbody2d.gravityScale);
+            enemyMovement.GoToInGround(player.GetPosition(), chasing: true, checkNearEdge: false);
         }
-        lastSeenPlayerPosition = player.GetPosition();
+
+        if (!justChasedPlayer)
+        {
+            lastSeenPlayerPosition = player.GetPosition();
+        }
 
         justChasedPlayer = true;
+        curWaitTime = waitTimeAfterReachedTarget;
+        curInterval = 0;
+
+        animationManager.ChangeAnimation("walk", enemyMovement.ChaseSpeed * 1 / enemyMovement.DefaultSpeed);
     }
 
-    protected override void Attack()
+    /*protected override void Attack()
     {
         player.TakeTirement(damageAmount);
+
+    }*/
+
+    protected override void MainRoutine()
+    {
+        enemyMovement.DefaultPatrol();
     }
 }

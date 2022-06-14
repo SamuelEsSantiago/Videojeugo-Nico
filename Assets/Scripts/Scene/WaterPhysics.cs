@@ -4,13 +4,13 @@ using UnityEngine;
 
 public class WaterPhysics : MonoBehaviour
 {
-    public Rigidbody2D body;
     PlayerManager player;
+    [SerializeField] public State waterSlowState;
 
     void Start()
     {
         player = PlayerManager.instance;
-
+        waterSlowState.onEffect = false;
     }
 
     void Update()
@@ -20,21 +20,27 @@ public class WaterPhysics : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision){
         GameObject collisionGameObject = collision.gameObject;
-        if (collisionGameObject.tag == "Player")
+        if (collisionGameObject.tag == "Playerwater")
         {
             player.currentGravity = .5f;
-            player.isInWater = true;
-            player.walkingSpeed = 3.5f;
+            waterSlowState = player.statesManager.AddState(waterSlowState);
+        }
+    }
+    private void OnTriggerStay2D(Collider2D collision){
+        GameObject collisionGameObject = collision.gameObject;
+        if (collisionGameObject.tag == "Playerwater")
+        {
+            player.currentGravity = .5f;
+            waterSlowState = player.statesManager.AddState(waterSlowState);
         }
     }
     private void OnTriggerExit2D(Collider2D collision){
             GameObject collisionGameObject = collision.gameObject;
-        if (collisionGameObject.tag == "Player")
+        if (collisionGameObject.tag == "Playerwater")
         {
-            player.currentGravity = player.defaultGravity;
-            player.isInWater = false;
-            player.walkingSpeed = player.defaultwalkingSpeed;
-
+            player.currentGravity = PlayerManager.defaultGravity;
+            player.statesManager.RemoveState(waterSlowState);
+            PlayerManager.instance.currentGravity = PlayerManager.defaultGravity;
         }
     }
 }

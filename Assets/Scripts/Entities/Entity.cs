@@ -1,7 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using static RandomGenerator;
 public class Entity : MonoBehaviour
 {
     protected const string LEFT = "left";
@@ -15,11 +12,16 @@ public class Entity : MonoBehaviour
     [Header("Normal states")]
     public StateNames currentState;
     public bool isWalking = false;
+    public bool isRunning = false;
     public bool isGrounded = false;
     public bool isJumping = false;
     public bool isFlying = false;
     public bool isFalling = false;
     public bool isInWater = false;
+    public bool isInIce = false;
+    public bool isInSnow = false;
+    public bool isInConvey = false;
+    public bool isInDark = false;
     #endregion 
 
     #region Special States
@@ -48,81 +50,118 @@ public class Entity : MonoBehaviour
     #region Layers, rigids, etc...
     [Header ("General additions")]
     public Rigidbody2D rigidbody2d;
-    protected Animator animator;
-    [SerializeField] protected LayerMask whatIsGround;
+    public Animator animator;
+    public AnimationManager animationManager;
     [SerializeField] protected LayerMask[] whatIsObstacle;
-    [SerializeField] public Transform feetPos;    
-    [SerializeField] protected float checkFeetRadius;
+    [SerializeField] public Transform feetPos;
+
+
+    public GroundChecker groundChecker;
+    public CollisionHandler collisionHandler;
+    
+    public SomePhysics physics;
+
+    public Transform emotePos;
+    
     #endregion
+
+    protected virtual void collisionHandler_EnterContact(GameObject contact){}
+    protected virtual void collisionHandler_StayInContact(GameObject contact){}
+    protected virtual void collisionHandler_ExitContact(GameObject contact){}
+    protected virtual void groundChecker_Grounded(string groundTag){}
+    protected virtual void groundChecker_ExitGround(){}
+
+    protected void Awake()
+    {
+        statesManager = gameObject.GetComponent<StatesManager>();
+        
+        statesManager?.StopAll();
+    }
 
     #region Unity stuff
     protected void Start()
     {
-        animator = GetComponent<Animator>();
-        rigidbody2d = GetComponent<Rigidbody2D>();
-        statesManager = gameObject.GetComponent<StatesManager>();
+        if (transform.rotation.z != 0)
+        {
+            facingDirection = transform.rotation.x == 0? RIGHT:LEFT;
+        }
+        else
+        {
+            facingDirection = transform.rotation.y == 0? RIGHT:LEFT;
+        }
+
+        if (animator == null)
+        {
+            animator = GetComponent<Animator>();
+        }
+
+        if (rigidbody2d == null)
+        {
+            rigidbody2d = GetComponent<Rigidbody2D>();
+        }
+
+        if (collisionHandler != null)
+        {
+            collisionHandler.EnterTouchingContactHandler += collisionHandler_EnterContact;
+            collisionHandler.StayTouchingContactHandler += collisionHandler_StayInContact;
+            collisionHandler.ExitTouchingContactHandler += collisionHandler_ExitContact;
+        }
+
+        if (groundChecker != null)
+        {
+            groundChecker.GroundedHandler += groundChecker_Grounded;
+            groundChecker.ExitGroundHandler += groundChecker_ExitGround;
+        }
+
     }
 
     protected void Update()
     {
-        facingDirection = transform.rotation.y == 0? RIGHT:LEFT;
-        isGrounded = Physics2D.OverlapCircle(feetPos.position, checkFeetRadius, whatIsGround);
+        if (transform.rotation.z != 0)
+        {
+            facingDirection = transform.rotation.x == -1? LEFT:RIGHT;
+        }
+        else
+        {
+            var rotation = Mathf.RoundToInt(transform.rotation.y);
+            facingDirection = rotation == 0? RIGHT:LEFT;
+        }
+
+        if (groundChecker != null)
+        {
+            isGrounded = groundChecker.isGrounded;
+        }
+
         isFalling = rigidbody2d.velocity.y < - fallingCriteria;
-        try
-        {
-            UpdateAnimation();
-        }
-        catch (System.Exception)
-        {
-            throw;
-        }
     }
 
-    public void UpdateAnimation()
-    {
-        animator.SetBool("Is Grounded", isGrounded);
-        animator.SetBool("Is Walking", isWalking);
-        animator.SetBool("Is Falling", isFalling);
-        animator.SetBool("Is Jumping", isJumping);
-        animator.SetBool("Is Flying", isFlying);
-        animator.SetBool("Is Paralized", isParalized);
-        animator.SetBool("Is Captured", isCaptured);
-        animator.SetBool("Is In Fear", isInFear);
-        animator.SetBool("Is Brain Frozen", isBrainFrozen);
-        animator.SetBool("Is Resting", isResting);
-        animator.SetBool("Is Chasing", isChasing);
-    }
 
     public Vector3 GetPosition()
     {
-        //return rigidbody2d.position;
         return this.transform.position;
     }
 
     #endregion
 
     #region Self state methods
-
-    // not working
-    /*public void Fear()
+    public void  ChangeFacingDirection()
     {
-        isInFear = true;
-        StopAllCoroutines();
-        var jumpForce = RandomGenerator.NewRandom(2, 7);
-        var jumps = RandomGenerator.NewRandom(2, 5);
-
-        //Vector3 vector;
-        for (int i = 0; i < jumps; i++)
+        var rotation = Mathf.RoundToInt(transform.eulerAngles.z);
+        if (rotation == 0 || rotation == 180)
         {
-            var x = RandomGenerator.NewRandom(-5, 5);
-            if (isGrounded)
-            {
-                rigidbody2d.velocity = new Vector3(rigidbody2d.velocity.x, jumpForce);
-            }
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x , transform.eulerAngles.y + 180, rotation);
         }
-        isInFear = false;
-    }*/
+        else 
+        {
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x + 180, transform.eulerAngles.y, rotation);
+        }
 
+    }
+    
+    #endregion
+
+
+    #region Physics related
     public void Push(float xForce, float yForce)
     {
         //rigidbody2d.velocity = new Vector2(rigidbody2d.velocity.x, 0f);
@@ -130,6 +169,23 @@ public class Entity : MonoBehaviour
         rigidbody2d.AddForce(force, ForceMode2D.Force);
     }
 
-    
+    public void Knockback(float knockbackDuration, float knockbackForce, Vector2 knockbackDir)
+    {
+        physics.StartKnockback(knockbackDuration, knockbackForce, knockbackDir);
+    }
+
+    public float GetJumpForce(){
+        return jumpForce;
+    }
+    public void SetJumpForce(float newJumpForce){
+        jumpForce = newJumpForce;
+    }
+
     #endregion
+
+    public void DestroyEntity()
+    {
+        EntityDestroyFx.Instance.StartDestroyFx(this);
+        Destroy(gameObject);
+    }
 }

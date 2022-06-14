@@ -1,101 +1,91 @@
 using UnityEngine;
-public class SwordGriffin : Griffin
+public class SwordGriffin : Enemy
 {
+    [Header("Self Additions")]
     [SerializeField] private float secondFovDistance;
     [SerializeField] private float firstFovSpeedMultiplier;
-    [SerializeField] private float secondFovSpeedMultiplier;
-    [SerializeField] private float baseWaitTimeAfterDestroy;
-    [SerializeField] protected bool touchingBreakableObject;
     private float firstFovSpeed;
+    [SerializeField] private float secondFovSpeedMultiplier;
     private float secondFovSpeed;
+    [SerializeField] private float baseWaitTimeAfterDestroy;
     private float waitTimeAfterDestroy;
+    [SerializeField] private State effectOnDestroyObject;
     private bool destroyedObject;
-    private GameObject breakableObject;
+
+    bool touchingBreakable;
+
+    // private GameObject breakableObject;
+
+
     new void Start()
     {
         firstFovSpeed = averageSpeed * firstFovSpeedMultiplier;
         secondFovSpeed = averageSpeed * secondFovSpeedMultiplier;
+        
         base.Start();
-    }
-
-    new void Update()
-    {
-        base.Update();
     }
 
     protected override void MainRoutine()
     {
-        return;
+        if (!touchingBreakable)
+        {
+            enemyMovement.StopMovement();
+        }
     }
 
     protected override void ChasePlayer()
     {
-        if (!destroyedObject)
+        float speed = fieldOfView.GetDistanceFromPlayerFov() >= secondFovDistance ? firstFovSpeed : secondFovSpeed;
+        
+        if (MathUtils.GetAbsXDistance(player.GetPosition(), GetPosition()) > 2f)
         {
-            if (facingDirection == LEFT && player.GetPosition().x > this.GetPosition().x || facingDirection == RIGHT && player.GetPosition().x < this.GetPosition().x)
+            enemyMovement.GoToInGround(player.GetPosition(), speed, checkNearEdge: true);
+
+            if (!touchingBreakable)
             {
-                ChangeFacingDirection();
-            }
-            // first fov
-            if (!CanSeePlayerSecondFov())
-            {
-                MoveTowardsPlayerInGround(firstFovSpeed);
-            }
-            else
-            {
-                MoveTowardsPlayerInGround(secondFovSpeed);
-            }
-            //rigidbody2d.velocity = Vector3.MoveTowards(GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime);
-            if (touchingBreakableObject)
-            {
-                Destroy(breakableObject);
-                destroyedObject = true;
-                // paralized 2 seg
-                if (!touchingPlayer)
+                if (!groundChecker.isNearEdge && !fieldOfView.inFrontOfObstacle)
                 {
-                    statesManager.AddState(atackEffect);
+                    animationManager?.ChangeAnimation("walk", speed * 1 / enemyMovement.DefaultSpeed);
+                }
+                else
+                {
+                    animationManager.ChangeAnimation("idle");
                 }
             }
         }
-        else
+    }
+
+    protected override void Attack()
+    {
+        HandleBreakAnimation();
+        base.Attack();
+    }
+
+    protected override void collisionHandler_EnterContact(GameObject contact)
+    {
+        if (contact.tag == "Breakable")
         {
-            if (waitTimeAfterDestroy < baseWaitTimeAfterDestroy)
+            HandleBreakAnimation();
+            //breakableObject = contact;
+            Destroy(contact);
+            //destroyedObject = true;
+            if (!touchingPlayer)
             {
-                waitTimeAfterDestroy += Time.deltaTime;
-            }
-            else
-            {
-                destroyedObject = false;
-                waitTimeAfterDestroy = 0;
+                statesManager.AddState(effectOnDestroyObject);
             }
         }
-        
     }
 
-    
-
-    protected override void OnCollisionEnter2D(Collision2D other)
+    void HandleBreakAnimation()
     {
-        base.OnCollisionEnter2D(other);
-        if (other.gameObject.tag == "Breakable")
-        {
-            touchingBreakableObject = true;
-            breakableObject = other.gameObject;
-        }
+        animationManager.ChangeAnimation("break");
+        touchingBreakable = true;
+        Invoke("AfterBreakable", 0.3f);
     }
 
-    protected override void OnCollisionExit2D(Collision2D other)
+    void AfterBreakable()
     {
-        base.OnCollisionExit2D(other);
-        if (other.gameObject.tag == "Breakable")
-        {
-            touchingBreakableObject = false;
-        }
-    }
-
-    private bool CanSeePlayerSecondFov()
-    {
-        Debug.Log(GetDistanceFromPlayerFov());
-        return GetDistanceFromPlayerFov() <= secondFovDistance;
+        touchingBreakable = false;
+        animationManager.SetCurrentState("idle", true);
     }
 }

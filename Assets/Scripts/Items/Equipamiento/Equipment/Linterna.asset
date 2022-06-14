@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ea47d0f9bd148e45a6f710850edb61b, type: 3}
+  m_Name: Linterna
+  m_EditorClassIdentifier: 
+  type: 1
+  nombre: Linterna
+  descripcion: Una fuente de luz. Perfecto para zonas con poca visibilidad.
+  icon: {fileID: -400683508802655913, guid: 45670eb2793ccd04b8347e6024bc92ac, type: 3}
+  isConsumable: 0
+  isInCooldown: 0
+  equipmentSlot: 3
+  isPasive: 1

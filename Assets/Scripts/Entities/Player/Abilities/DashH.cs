@@ -4,68 +4,81 @@ using UnityEngine;
 
 public class DashH : Ability
 {
-    public Rigidbody2D body;
-    private float prevGravity;
+    [SerializeField]private Rigidbody2D body;
+    public override KeyCode hotkey {get => PlayerManager.instance.inputs.controlBinds["MOVERIGHT"];}
+    protected KeyCode altHotkey {get => PlayerManager.instance.inputs.controlBinds["MOVELEFT"];}
+    private KeyCode lastKey;
     private float timeKeyPressed;
     public float doubleTimeTap;
-    public float movimiento;
-    public float speed;
-    float currentDashTime;
-    Vector2 target;
-    int nKeyPressed;
+    byte nKeyPressed;
+    [SerializeField] KnockbackState dashH; 
     public override void UseAbility()
     {
+        nKeyPressed = 0;
+        if(player.currentStamina < staminaCost + 0.1f)return;
         base.UseAbility();
-        if(player.currentStamina < staminaCost)return;
-        player.isDashing=true;
-        body.velocity = new Vector2(body.velocity.x, 0f);
-        body.AddForce(new Vector2(movimiento * speed, 0f), ForceMode2D.Impulse);
-        prevGravity = body.gravityScale;
-        body.gravityScale = 0;
-        isInCooldown = true;
+        dashH = (KnockbackState)player.statesManager.AddState(dashH);
+        if (player.abilityManager.IsUnlocked(Abilities.DodgePerfecto))
+        {
+            player.SetImmune(duration);
+        }
     }
 
-        
-        protected override void Update(){
-            if (isInCooldown)
+
+    protected override void Start()
+    {
+        base.Start();
+        dashH.onEffect = false;
+    }
+    protected override void Update(){
+        this.enabled = isUnlocked;
+        if (isInCooldown)
+        {
+            time += Time.deltaTime;
+            if (time >= cooldownTime)
             {
-                time += Time.deltaTime;
-                if (time >= cooldownTime)
-                {
-                    isInCooldown = false;
-                    time = 0;
-                }
+                isInCooldown = false;
+                time = 0;
             }
-            this.enabled = isUnlocked;
-            if(player.isDashing){
-                currentDashTime += Time.deltaTime;
-                if(currentDashTime >= duration){
-                    currentDashTime=0;
-                    player.isDashing = false;
-                    body.gravityScale = prevGravity;
-                }
-            }
-            else{
-                if(timeKeyPressed!=0){
-                    timeKeyPressed+=Time.deltaTime;
-                    if(timeKeyPressed>=doubleTimeTap){
-                        timeKeyPressed=0;
-                        nKeyPressed=0;
-                    }
-                }
-                if(Input.GetKeyDown(hotkey)){
-                    nKeyPressed++;
-                    timeKeyPressed+=Time.deltaTime;
-                    //Debug.Log("Presionado "+hotkey.ToString()+" nTimes: " + nKeyPressed);
-                }
-                
-                if(nKeyPressed>=2){
-                    nKeyPressed=0;
-                    UseAbility();
-                }
-            }
-            
         }
+        player.isDashingH = player.statesManager.currentStates.Contains(dashH);
+        Dash(hotkey);
+        Dash(altHotkey);
         
+    }
+
+    private void Dash(KeyCode key){
+        
+        if (Input.GetKeyDown(key))
+        {
+            nKeyPressed++;
+            if (lastKey != key)
+            {
+                nKeyPressed = 0;
+                timeKeyPressed = 0;
+            }
+            lastKey = key;
+        }
+        if (nKeyPressed == 1)
+        {
+            if (timeKeyPressed<doubleTimeTap)
+            {
+                timeKeyPressed += Time.deltaTime;
+            }else
+            {
+                nKeyPressed = 0;
+                timeKeyPressed = 0;
+            }
+        }
+        if (nKeyPressed >= 2)
+        {
+            UseAbility();
+        }
+    }
+    /*private void FixedUpdate() {
+        if(player.isDashingH){
+            body.AddForce(target * speed * Time.deltaTime);
+        }
+    }*/
     
 }

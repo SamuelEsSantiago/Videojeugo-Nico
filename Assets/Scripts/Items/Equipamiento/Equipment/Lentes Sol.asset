@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a3d213e4f82ded4b88eeb4921528170, type: 3}
+  m_Name: Lentes Sol
+  m_EditorClassIdentifier: 
+  type: 1
+  nombre: Lentes de sol
+  descripcion: Puedes vivir sin el constante terror que un grano de arena entre a
+    tus globulos oculares.
+  icon: {fileID: -7312600949032613169, guid: 45670eb2793ccd04b8347e6024bc92ac, type: 3}
+  isConsumable: 0
+  isInCooldown: 0
+  equipmentSlot: 0
+  isPasive: 1
+  negateThisState: {fileID: 11400000, guid: f099e461be4d5fc479fab9c222c68c6f, type: 2}

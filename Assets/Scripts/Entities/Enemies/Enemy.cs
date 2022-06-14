@@ -1,83 +1,177 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public abstract class Enemy : Entity
 {
-    
 
     #region Main Parameters
     [Header("Main parameters")]
-    [SerializeField] protected FovType fovType;
+    [SerializeField] public EnemyType enemyType;
     [SerializeField] public EnemyName enemyName;
-    [SerializeField] protected float damageAmount;
-    [SerializeField] protected float normalSpeedMultiplier;
+    [SerializeField] public bool flipToPlayerIfSpotted;
+    /*[SerializeField] protected float normalSpeedMultiplier;
+    [SerializeReference] public float normalSpeed;
     [SerializeField] protected float chaseSpeedMultiplier;
-    [SerializeField]protected State atackEffect;
-    [SerializeField]protected State projectileEffect;
+    [SerializeReference] public float chaseSpeed;*/
 
-    [SerializeField] protected float startWaitTime;
-    protected float waitTime;
-    [SerializeField] protected float normalSpeed;
-    [SerializeField] protected float chaseSpeed;
-
+    [Header("Effect on Player")]
+    [SerializeField] protected float damageAmount;
+    public float Damage { get => damageAmount; set => damageAmount = value; }
+    [SerializeField] private float punishDamage;
+    [SerializeField] protected State atackEffect;
+    [SerializeField] protected bool canKnockbackPlayer;
+    [Range(0, 360)]
+    [SerializeField] private float knockbackAngle;
+    [SerializeField] private float knockbackDuration;
+    [SerializeField] private float knockBackForce;
     #endregion
 
     #region Layers, rigids, etc
-    [Header("Layers, rigids, etc")]
-    private RaycastHit2D hit;
-    [SerializeField] protected Transform? groundCheck;
-    [SerializeField] protected Transform? fovOrigin;
-    
-    // Distance from fovOrigin to check if in front of obstacle
-    [SerializeField] protected float baseCastDistance;
-    [SerializeField] protected float downDistanceGroundCheck;
-    
-    // Fov distance
-    [SerializeField] protected float viewDistance;
+    [Header("References")]
+    [SerializeField] protected FieldOfView fieldOfView;
+    [SerializeField] protected EnemyMovement enemyMovement;
+    public EnemyMovement EnemyMovement { get => enemyMovement; }
+    [SerializeField] protected ProjectileShooter projectileShooter;
+    [SerializeField] protected LaserShooter laserShooter;
+    [SerializeField] protected ItemInteractionManager itemInteractionManager;
+    public FieldOfView FieldOfView { get => fieldOfView; }
+    [HideInInspector] public EnemyCollisionHandler eCollisionHandler;
+    protected PlayerManager player;
+    public bool touchingPlayer;
 
-    // Fov angle if needed
-    [SerializeField] protected float fovAngle;
+
+    [SerializeField] private EmoteSetter sawPlayerEmote;
+    private EmoteSetter sawEmote;
+
     #endregion
 
-    #region Status
-    [SerializeField] protected bool touchingPlayer;
-    [SerializeField] protected bool justCapturedPlayer;
-    #endregion
+    #region eCollisionHanlder && FieldOfView Event Subs
+    protected virtual void fieldOfView_InFrontOfObstacle(){}
+    protected virtual void eCollisionHandler_TouchingPlayer(){}
+    protected virtual void eCollisionHandler_TouchedPlayer()
+    {
+        Attack();
+    }
+    protected virtual void eCollisionHandler_StoppedTouchingPlayer(){}
+    public void ForceAttack() { Attack(); }
 
-    #region Abstract methods
-    protected abstract void MainRoutine();
-    
-    /// <summary>
-    /// What happens when the enemy sees the player
-    /// </summary>
-    protected abstract void ChasePlayer();
-    protected abstract void Attack();
-    public abstract void ConsumeItem(Item item);
-    #endregion
+    void fieldOfView_PlayerSighted()
+    {
+        //sawEmote = (EmoteSetter)statesManager.AddStateDontRepeat(sawPlayerEmote);
+        if (sawPlayerEmote == null) return;
+        if (sawEmote == null || !sawEmote.onEffect)
+        {
+            statesManager.Stop(s => s.ObjectName.Contains(sawPlayerEmote.ObjectName));
 
-    #region Utils
-    [SerializeField] protected PlayerManager player;
+            sawEmote = (EmoteSetter)statesManager.AddStateDontRepeatName(sawPlayerEmote);
+        }
+    }
+
+    void fieldOfView_PlayerUnsighted()
+    {
+        if (sawPlayerEmote == null) return;
+        if (sawEmote == null) sawEmote = statesManager?.currentStates?.Find( s => s != null && s.ObjectName.Contains(sawPlayerEmote?.ObjectName)) as EmoteSetter;
+
+        sawEmote?.StopAffect();
+        sawEmote = null;
+        //statesManager.RemoveEmotes();
+    }
     #endregion
 
     #region Unity stuff
+    new protected void Awake()
+    {
+        base.Awake();
+        if (enemyMovement == null)
+        {
+            enemyMovement = GetComponent<EnemyMovement>();
+        }
+        if (fieldOfView == null)
+        {
+            fieldOfView = GetComponent<FieldOfView>();
+        }
+
+        if (fieldOfView != null)
+        {
+            fieldOfView.PlayerSighted += fieldOfView_PlayerSighted;
+            fieldOfView.PlayerUnsighted += fieldOfView_PlayerUnsighted;
+        }
+        eCollisionHandler = (EnemyCollisionHandler)base.collisionHandler;
+        
+        //eCollisionHandler.TouchingPlayerHandler += eCollisionHandler_TouchingPlayer;
+        if (eCollisionHandler != null)
+        {
+            eCollisionHandler.TouchedPlayerHandler += eCollisionHandler_TouchedPlayer;
+            eCollisionHandler.TouchingPlayerHandler += eCollisionHandler_TouchingPlayer;
+            eCollisionHandler.StoppedTouchingHandler += eCollisionHandler_StoppedTouchingPlayer;
+        }
+        if (fieldOfView != null)
+        {
+            fieldOfView.FrontOfObstacleHandler += fieldOfView_InFrontOfObstacle;
+        }
+
+        //sawEmote = null;
+
+        statesManager?.RemoveEmotes();
+    }
+
+    void OnEnable()
+    {
+
+        if (fieldOfView.canSeePlayer) fieldOfView_PlayerSighted();
+        else fieldOfView_PlayerUnsighted();
+    }
+
+
     new protected void Start()
     {
         base.Start();
         player = ScenesManagers.Instance.player;
-        chaseSpeed = chaseSpeedMultiplier * averageSpeed;
-        normalSpeed = normalSpeedMultiplier * averageSpeed;
+        //chaseSpeed = chaseSpeedMultiplier * averageSpeed;
+        //normalSpeed = normalSpeedMultiplier * averageSpeed;
     }
 
     new protected void Update()
     {
-        if (InFrontOfObstacle() && isChasing)
-        {
-            ChangeFacingDirection();
-        }
-        UpdateState();
+        //Debug.DrawLine(GetPosition(), transform.TransformPoint((MathUtils.GetVectorFromAngle(knockbackAngle)).normalized));
         base.Update();
+
+
+        if (isChasing && flipToPlayerIfSpotted && MathUtils.GetAbsXDistance(GetPosition(), player.GetPosition()) > 1f)
+        {
+            if ((GetPosition().x > player.GetPosition().x && facingDirection == RIGHT)
+                || (GetPosition().x < player.GetPosition().x && facingDirection == LEFT))
+                {
+                    if (rigidbody2d?.gravityScale == 0 ||  groundChecker.isGrounded)
+                    {
+                        ChangeFacingDirection();
+                    }
+                }
+        }
+        touchingPlayer = eCollisionHandler.touchingPlayer;
+
+        
+       /* if (fieldOfView.canSeePlayer)
+        {
+            if (sawEmote == null || !sawEmote.onEffect)
+            {
+                statesManager.Stop(s => s.ObjectName.Contains(sawPlayerEmote.ObjectName));
+                sawEmote = (EmoteSetter)statesManager.AddStateDontRepeat(sawPlayerEmote);
+            }
+        }
+        else
+        {
+            if (sawEmote != null)
+            {
+                //statesManager.RemoveState(sawEmote);
+                sawEmote.StopAffect();
+                sawEmote = null;
+            } 
+        }*/
+        
+        SetStates();
+        UpdateState();
+        
     }
 
     protected void FixedUpdate()
@@ -87,107 +181,73 @@ public abstract class Enemy : Entity
             case StateNames.Chasing:
                 ChasePlayer();
                 break;
-            case StateNames.Paralized:
-                //justCapturedPlayer;
-                break;
-            case StateNames.Fear:
-                //Fear();
-                break;
             case StateNames.Patrolling:
                 MainRoutine();
                 break;
         }
-    }
-
-    /// <summary>
-    /// OnCollisionStay is called once per frame for every collider/rigidbody
-    /// that is touching rigidbody/collider.
-    /// </summary>
-    /// <param name="other">The Collision data associated with this collision.</param>
-    protected virtual void OnCollisionEnter2D(Collision2D other)
-    {
-        // if the enemy is touching the player
-        if (other.gameObject.tag == "Player")
-        {
-            touchingPlayer = true;
-            if (!player.isImmune)
-            {
-                Attack();
-            }
-        }
-    }
-    
-    /// <summary>
-    /// Sent when a collider on another object stops touching this
-    /// object's collider (2D physics only).
-    /// </summary>
-    /// <param name="other">The Collision2D data associated with this collision.</param>
-    protected virtual void OnCollisionExit2D(Collision2D other)
-    {
-        if (other.gameObject.tag == "Player")
-        {
-            touchingPlayer = false;
-        }
+        
     }
     #endregion
 
-    #region General behaviour methods
+    
+    
+    #region Behaviour (mainly called by current state)
+    protected virtual void MainRoutine() {}
+    
     /// <summary>
-    /// Rotates the enemy Y axis
+    /// What happens when the enemy sees the player
     /// </summary>
-    protected void ChangeFacingDirection()
-    {
-        transform.eulerAngles = new Vector3(0, facingDirection == LEFT? 0:180);
-    }
-    protected bool InFrontOfObstacle()
-    {
+    protected virtual void ChasePlayer() {}
 
-        float castDistance = facingDirection == LEFT ? -baseCastDistance : baseCastDistance;
-        Vector3 targetPos = fovOrigin.position + (facingDirection == LEFT? Vector3.left : Vector3.right) * castDistance;
-        return RayHitObstacle(fovOrigin.position, targetPos);
-        //targetPos.x += castDistance;
-
-        /*foreach (var obstacle in whatIsObstacle)
+    protected virtual void Attack()
+    {
+        if(atackEffect != null)
         {
-            if (Physics2D.Linecast(fovOrigin.position, targetPos, obstacle))
-            {
-                return true;
-            }
+            player.statesManager.AddState(atackEffect,this);
         }
-        return false;
-        /*return //Physics2D.Linecast(fovOrigin.position, targetPos, 1 << LayerMask.NameToLayer("Obstacles")) || 
-                Physics2D.Linecast(fovOrigin.position, targetPos, 1 << LayerMask.NameToLayer("Ground"));*/
-    }
-
-    protected bool IsNearEdge()
-    {
-        // the raycast draws a 0.2f line down and checks if there's something 
-        return !(Physics2D.Raycast(groundCheck.position, Vector3.down, 0.3f)).collider;
-    }
-
-    // not tested
-    public IEnumerator AfterPlayerReleasedFromCapture()
-    {
-        isParalized = true;
-        rigidbody2d.Sleep();
-        yield return new WaitForSeconds(2);
-        rigidbody2d.WakeUp();
-        isParalized = false;
-    }
-
-    protected void MoveTowardsPlayerInGround(float speed)
-    {
-        Vector3 playerPosition = (player.isGrounded? player.GetPosition(): new Vector3(player.GetPosition().x, GetPosition().y));
-        if (!InFrontOfObstacle() && isGrounded && !touchingPlayer)
+        player.TakeTirement(damageAmount);
+        if (damageAmount > 0)
         {
-            rigidbody2d.position = Vector3.MoveTowards(GetPosition(), playerPosition, speed * Time.deltaTime);
+            player.SetImmune();
+            player.currentStaminaLimit -= punishDamage;
         }
-        //rigidbody2d.position = Vector3.MoveTowards(GetPosition(), player.GetPosition(), speed * Time.deltaTime);
-    }
 
-    public void Jump(float xForce)
+        if (canKnockbackPlayer)
+        {
+            KnockbackEntity(player);
+        }
+
+
+        enemyMovement?.StopMovement();
+    }
+    public virtual void ConsumeItem(Item item)
     {
-        rigidbody2d.AddForce(new Vector2(xForce,jumpForce),ForceMode2D.Impulse);
+        //Debug.Log(enemyName + " consumiendo "+ item.nombre);
+        itemInteractionManager?.Interact(item);
+    }
+    #endregion
+
+    #region Effects on self or other
+    protected virtual void KnockbackEntity(Entity entity)
+    {
+        //Debug.Log(gameObject + " knock " + entity);
+        var entityPos = new Vector3(entity.GetPosition().x, entity.GetPosition().y);
+        var facingRight = entity.facingDirection == RIGHT;
+        var fixedDir = new Vector3();
+        if (entity.GetPosition().x > GetPosition().x)
+        {
+            fixedDir =  facingRight? MathUtils.GetVectorFromAngle(knockbackAngle) : MathUtils.GetVectorFromAngle(180 - knockbackAngle);
+        }
+        else if (entity.GetPosition().x != GetPosition().x)
+        {
+            fixedDir = facingRight? MathUtils.GetVectorFromAngle(180 - knockbackAngle) : MathUtils.GetVectorFromAngle(knockbackAngle);
+        }
+        else
+        {
+            fixedDir = MathUtils.GetVectorFromAngle(90);
+        }
+        var direction =  entity.transform.InverseTransformPoint(entityPos + fixedDir);
+        entity.Knockback(knockbackDuration, knockBackForce, direction);
     }
     #endregion
 
@@ -203,130 +263,18 @@ public abstract class Enemy : Entity
             isFalling? StateNames.Falling :
             StateNames.Patrolling;
     }
-    // To call IEnumerators use StartCoroutine() pls
-    public IEnumerator Paralized(float time)
+
+    protected virtual void SetStates()
     {
-        isParalized = true;
-        rigidbody2d.Sleep();
-        Debug.Log("Paralized");
-        yield return new WaitForSeconds(time);
-        rigidbody2d.WakeUp();
-        isParalized = false;
-        Debug.Log("Not paralized");
+        isChasing = fieldOfView.canSeePlayer;
     }
     
-    // not tested yet
-    public IEnumerator Rest()
-    {
-        isResting = true;
-        rigidbody2d.Sleep();
-        yield return new WaitUntil(()=>CanSeePlayer());
-        rigidbody2d.WakeUp();
-        isResting = false;
-    }
-    #endregion
-
-    
-
-    #region Fov stuff
-    /// <summary>
-    /// Checks if the enemy is able to see the player based on its field of view
-    /// </summary>
-    /// <returns></returns>
-    protected bool CanSeePlayer()
-    {
-        Vector3 endPos = fovOrigin.position;
-        
-        Vector3 dir = player.GetPosition() - fovOrigin.position;
- 
-        //      90
-        //  180     0 or 360
-        //      270       
-        float angle = GetAngleFromPlayer();
-
-        switch (fovType)
-        {
-            case FovType.Linear:
-                if (facingDirection == LEFT)
-                {
-                    endPos = fovOrigin.position + Vector3.left * viewDistance;
-                }
-                else
-                {
-                    endPos = fovOrigin.position + Vector3.right * viewDistance;
-                }
-                break;
-            case FovType.CircularFront:
-                if (facingDirection == RIGHT)
-                {
-                    if ( (angle > 0 && angle < 90 && angle < 0 + fovAngle/2) ||
-                        (angle > 270 && angle < 360 && angle > 360 - fovAngle/2) )
-                    {
-                        endPos = Vector3.MoveTowards(fovOrigin.position, player.GetPosition(), viewDistance);
-                    }
-                }
-                else
-                {
-                    if (angle > (180 - fovAngle/2) && angle < 270 && angle < 180 + fovAngle/2 && angle < 180 + fovAngle/2) 
-                    {
-                        endPos = Vector3.MoveTowards(fovOrigin.position, player.GetPosition(), viewDistance);
-                    }
-                }
-                break;
-            case FovType.CircularDown:
-                if (angle > 180 && angle < 360 && angle > 270 - fovAngle/2 && angle < 270 + fovAngle/2)
-                {
-                    endPos = Vector3.MoveTowards(fovOrigin.position, player.GetPosition(), viewDistance);
-                }
-                break;
-            case FovType.CircularUp:
-                if (angle < 180 && angle > 0 && angle > 90 - fovAngle/2 && angle < 90 + fovAngle/2)
-                {
-                    endPos = Vector3.MoveTowards(fovOrigin.position, player.GetPosition(), viewDistance);
-                }
-                break;
-            case FovType.CompleteCircle:
-                endPos = Vector3.MoveTowards(fovOrigin.position, player.GetPosition(), viewDistance);
-                break;
-        }
-        Debug.DrawLine(fovOrigin.position, endPos, Color.red);
-
-        if (!RayHitObstacle(fovOrigin.position, endPos))
-        {
-            hit = Physics2D.Linecast(fovOrigin.position, endPos, 1 << LayerMask.NameToLayer("Default"));
-            if (hit.collider == null)
-            {
-                return false;
-            }
-            return hit.collider.gameObject.CompareTag("Player");
-        }
-        return false;
-        
-    }
-
-    public float GetDistanceFromPlayerFov()
-    {
-        return Math.Abs(hit.distance);
-    }
-
-    public float GetAngleFromPlayer()
-    {
-        return MathUtils.GetAngleBetween(fovOrigin.position, player.GetPosition());
-    }
-
-    private bool RayHitObstacle(Vector2 start, Vector2 end)
-    {
-        foreach (var obstacle in whatIsObstacle)
-        {
-            if (Physics2D.Linecast(start, end, obstacle))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
 
     #endregion
 
-    //public void push
+
+    void OnDisable()
+    {
+        fieldOfView_PlayerUnsighted();
+    }
 }

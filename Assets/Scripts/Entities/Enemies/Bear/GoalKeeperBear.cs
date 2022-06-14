@@ -1,54 +1,61 @@
 using UnityEngine;
-public class GoalKeeperBear : Bear
+public class GoalKeeperBear : Enemy
 {
-    private float initialChaseSpeed;
+    [Header("Self Additions")]
+    [SerializeField] private State touchedPlayerEffect;
+    [SerializeField] private float speedMultiplier;
+    [SerializeField] private float speedLimit;
+    [SerializeReference] private float speed;
     new void Start()
     {
+        speedLimit *= averageSpeed;
         base.Start();
-        initialChaseSpeed = chaseSpeed;
     }
-    new void Update()
-    {
-        if (InFrontOfObstacle())
-        {
-            //rigidbody2d.position = Vector3.MoveTowards(GetPosition(), new Vector3(GetPosition().x, jumpForce), chaseSpeed * Time.deltaTime * rigidbody2d.gravityScale);
-            //rigidbody2d.AddForce(Vector3.up * jumpForce * Time.deltaTime * rigidbody2d.gravityScale, ForceMode2D.Force);
-            rigidbody2d.velocity = new Vector2(rigidbody2d.velocity.x * normalSpeed * Time.deltaTime, jumpForce * rigidbody2d.gravityScale);
 
-        }
-        base.Update();
-    }
 
     protected override void MainRoutine()
     {
-        chaseSpeed = initialChaseSpeed;
-        base.MainRoutine();
+        if (groundChecker.isGrounded)
+        {
+            enemyMovement.DefaultPatrol();
+        }
     }
 
     protected override void ChasePlayer()
     {
-        if (facingDirection == LEFT && player.GetPosition().x > this.GetPosition().x || facingDirection == RIGHT && player.GetPosition().x < this.GetPosition().x)
+        if (player.GetPosition().y > GetPosition().y)
         {
-            ChangeFacingDirection();
-        }
-        chaseSpeed += 1/Mathf.Abs(player.GetPosition().x - this.GetPosition().x);
-        if (!touchingPlayer && isGrounded)
-        {
-            rigidbody2d.position = Vector3.MoveTowards(GetPosition(), player.GetPosition(), chaseSpeed * Time.deltaTime);
-
-            /*if (InFrontOfObstacle())
-            {
-                rigidbody2d.velocity = new Vector2(rigidbody2d.velocity.x * chaseSpeed * Time.deltaTime, jumpForce * rigidbody2d.gravityScale);
-            }*/
+            animationManager.ChangeAnimation("jump");
+            enemyMovement.Invoke("JumpByKnockback", 0.02f );
         }
         else
         {
-            chaseSpeed = initialChaseSpeed;
+            float newSpeed = 1 / (MathUtils.GetAbsXDistance(player.GetPosition(), GetPosition())) * speedMultiplier * averageSpeed;
+            if (newSpeed <= speedLimit)
+            {
+                speed = newSpeed;
+                enemyMovement.SetChaseSpeed(speed);
+            }
+            if (groundChecker.isGrounded)
+            {
+                if (MathUtils.GetAbsXDistance(player.GetPosition(), GetPosition()) > 1f)
+                {
+                    enemyMovement.GoToInGround(player.GetPosition(), chasing: true, checkNearEdge: false);
+                }
+                animationManager.ChangeAnimation("walk", enemyMovement.ChaseSpeed * 1 / enemyMovement.DefaultSpeed);
+            }
         }
+
     }
 
     protected override void Attack()
     {
-        player.TakeTirement(damageAmount);
+        base.Attack();
+        statesManager.AddState(touchedPlayerEffect);
+    }
+
+    protected override void groundChecker_Grounded(string groundTag)
+    {
+        enemyMovement.StopMovement();
     }
 }

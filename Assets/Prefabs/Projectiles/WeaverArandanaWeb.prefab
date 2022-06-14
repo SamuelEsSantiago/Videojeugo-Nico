@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2337818816161122311}
   - component: {fileID: 8153090046707985440}
   - component: {fileID: 3556037775915285561}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: ImpactEffect
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -129,9 +129,9 @@ GameObject:
   - component: {fileID: 1091648305553625287}
   - component: {fileID: 53733825894341834}
   - component: {fileID: -8865363725114915699}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: WeaverArandanaWeb
-  m_TagString: Untagged
+  m_TagString: Projectile
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -170,7 +170,7 @@ SpriteRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -247,13 +247,24 @@ MonoBehaviour:
   warning: {fileID: 1437622234418612008, guid: e86294fec41aee049b9e3c494465b7c8, type: 3}
   impactEffect: {fileID: 1414740504049841931}
   targetWarningAvailable: 1
-  speedMultiplier: 0.25
+  independentAttackEnabled: 0
+  collisionHandler: {fileID: 0}
+  speedMultiplier: 0.75
   maxShotDistance: 20
   damage: 5
   waitTime: 5
   impactEffectExitTime: 5
   touchingPlayer: 0
   touchingObstacle: 0
+  hasLifeTime: 0
+  lifeTime: 0
+  changeSizeByDistance: 0
+  distanceToIncrease: 0
+  sizeByDistanceMultiplier: 0
+  changeSizeByTime: 0
+  timeToIncrease: 0
+  sizeByTimeMultiplier: 0
+  isOnCollider: 0
 --- !u!50 &-8865363725114915699
 Rigidbody2D:
   serializedVersion: 4

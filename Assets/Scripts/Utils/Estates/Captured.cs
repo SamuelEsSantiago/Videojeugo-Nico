@@ -6,7 +6,6 @@ public class Captured : State
 {
     [SerializeField]private float staminaLost;
     PlayerManager player;
-    PlayerInputs inputs;
     public State penalization;
     Vector3 capturedPos;
     public override void StartAffect(StatesManager newManager)
@@ -14,12 +13,10 @@ public class Captured : State
         base.StartAffect(newManager);
         if(manager.enemy!=null)manager.enemy.enabled=false;
         player = PlayerManager.instance;
-        inputs = player.gameObject.GetComponent<PlayerInputs>();
-        inputs.enabled=false;
-        player.abilityManager.gameObject.SetActive(false);
+        player.SetEnabledPlayer(false);
         capturedPos = manager.hostEntity.GetPosition();
-        player = PlayerManager.instance;
-        player.GetComponent<PlayerInputs>().enabled=false;
+        player.ResetAnimations();
+        player.isCaptured = true;
     }
     public override void Affect()
     {
@@ -29,20 +26,29 @@ public class Captured : State
         if(currentTime>=duration){
             StopAffect();
         }
-        if(Input.GetKeyDown(KeyCode.A)){
+        if(player.currentStamina <= 5){
+            StopAffect();
+        }
+        if(Input.GetKeyDown(PlayerManager.instance.inputs.controlBinds["MOVERIGHT"])){
             currentTime++;
         }
-        if(Input.GetKeyDown(KeyCode.D)){
+        if(Input.GetKeyDown(PlayerManager.instance.inputs.controlBinds["MOVELEFT"])){
             currentTime++;
         }
     }
     public override void StopAffect(){
+        player.isCaptured = false;
+        player.SetImmune();
         base.StopAffect();
-        inputs.enabled=true;
+        Debug.Log("captured stopped");
         if(manager.enemy!=null)manager.enemy.enabled=true;
-        player.abilityManager.gameObject.SetActive(true);
         if(manager.enemy!=null){
             manager.enemy.statesManager.AddState(penalization);
         }
+        player.walkingSpeed = PlayerManager.defaultwalkingSpeed;
+        player.SetEnabledPlayer(true);
+        player.inputs.ResetHotbarInputs();
+        GunProjectile.instance.StopAiming();
+        //player.ResetAnimations();
     }
 }
