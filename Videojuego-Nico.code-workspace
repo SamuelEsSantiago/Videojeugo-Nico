@@ -7,5 +7,11 @@
 	"settings": {
 		"csharp.semanticHighlighting.enabled": true,
 		"emmet.showSuggestionsAsSnippets": true
+	},
+	"extensions": {
+		"recommendations": [
+			"yclepticstudios.unity-snippets",
+			"ms-dotnettools.csharp"
+		]
 	}
 }

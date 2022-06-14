@@ -22,8 +22,6 @@ public class ScenesManagers : MonoBehaviour
         }
         // Cache references to all desired variables
         player = FindObjectOfType<PlayerManager>();
-
-        
     }
     public static List<T> GetObjectsOfType<T>()
     {

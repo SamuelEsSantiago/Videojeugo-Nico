@@ -111,7 +111,7 @@ public class InteractionTrigger : MonoBehaviour
         PlayerManager.instance.inputs.Interact -= TriggerInteraction;
     }
     public void DoDelayMethods(){
-        Debug.Log("Santiago es muy inteligente");
+        //Debug.Log("Santiago es muy inteligente");
         delayMethods?.Invoke();
     }
 }
