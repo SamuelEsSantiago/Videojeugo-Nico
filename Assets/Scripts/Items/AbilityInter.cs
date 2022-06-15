@@ -2,7 +2,7 @@ using UnityEngine;
 public class AbilityInter : MonoBehaviour
 {
     [SerializeField] private AbilityObject abilityObject;
-    [SerializeField]private Ability.Abilities abilityName;
+    [SerializeField] private Ability.Abilities abilityName;
     private Ability ability;
     [SerializeField] private PopUpTrigger abilityPopUp;
     [SerializeField] private byte radius;
